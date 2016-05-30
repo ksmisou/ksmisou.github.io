@@ -17,6 +17,8 @@ var mineGame = (function() {
         this.width = 9; // ヨコの数
         this.mineQt = 10; // 地雷の数
 
+        this.step = 0; // 手数
+
         this.mine = null; // 地雷が格納される二次元配列 0: 普通 1: 地雷
         this.flag = null; // 印が格納される二次元配列 0: 無し 1: 開いた 2: 印
     }
@@ -39,6 +41,23 @@ var mineGame = (function() {
                     this.pick(x, y + 1);
                     this.pick(x + 1, y + 1);
                 }
+            }
+        }
+    };
+
+    Field.prototype.moveMine = function(x, y) { // 指定位置の地雷を移動させる
+        var n = 0,
+            i = 0,
+            j = 0;
+
+        while (n === 0) {
+            i = Math.random() * this.height ^ 0;
+            j = Math.random() * this.width ^ 0;
+
+            if (this.isMine(i, j) && i !== x && j !== y) {
+                this.mine[y][x] = 0;
+                this.mine[j][i] = 1;
+                n = 1;
             }
         }
     };
@@ -262,8 +281,8 @@ var mineGame = (function() {
             cy = 0;
 
         // 入力: カーソル位置
-        cx = e.clientX - e.target.offsetLeft;
-        cy = e.clientY - e.target.offsetTop;
+        cx = e.pageX - e.target.offsetLeft;
+        cy = e.pageY - e.target.offsetTop;
 
         // マス単位の位置に変換
         cx = (cx - 24) / 24 ^ 0;
@@ -274,11 +293,20 @@ var mineGame = (function() {
 
             // カーソルが画面内にある
             if (!e.ctrlKey) { // マスを開く
+                this.field.step++;
 
                 if (this.field.isMine(cx, cy)) { // クリック位置が地雷
 
-                    // ゲームオーバー
-                    this.field.showAll();
+                    if (this.field.step === 1) {
+
+                        // 爆弾を移動させる
+                        this.field.moveMine(cx, cy);
+                        this.field.pick(cx, cy);
+                    } else {
+
+                        // ゲームオーバー
+                        this.field.showAll();
+                    }
                 } else {
 
                     // 普通に開く
