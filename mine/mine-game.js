@@ -1,6 +1,6 @@
 
 /*
- * マインドスイーパ
+ * マインドスイーパ 
  */
 var mineGame = (function() {
     "use strict";
