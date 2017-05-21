@@ -1,0 +1,331 @@
+﻿<!DOCTYPE html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width;initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+<title>さるかに</title>
+<style>
+body {
+	color: #333300;
+	background-color: #cc99cc;
+	font-size:16px;
+	min-width:320px;
+	max-width:50%;
+	margin:auto;
+}
+h1,h2,h3,h4,h5,h6 {
+	text-align: center;
+}
+#sarukaniP,#sousa{
+	width:320px;
+	margin:auto;
+}
+#sarukaniP canvas, #sarukani {
+	width: 320px;
+	height: auto;
+	image-rendering: -moz-crisp-edges;
+	image-rendering: -webkit-crisp-edges;
+	image-rendering: crisp-edges;
+}
+#asobikata{
+    border-top: 2px ridge #333300;
+}
+</style>
+<script>
+	// @license magnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt CC0
+
+	//コンストラクタ
+	function skgame(img,pt)
+	{
+		var self = this;
+		this.id=null;
+		this.ti=img;
+		this.ti.style.display='none';
+		this.pt = new Image();
+		this.pt.src = pt;
+		this.cv = document.createElement("canvas");
+		this.cv.width = 160;
+		this.cv.height = 140;
+		(document.getElementById(this.ti.id+"P")).appendChild(this.cv);
+		this.ctx = this.cv.getContext('2d');
+		this.pt.onload = function(){self.init()};
+		this.title_Cv = 0;//タイトルに戻るまでの時間
+		this.score = 0;
+		this.highScore = 0;
+		this.frame = 0;
+		skgame.ctx = this.ctx;
+		//this.ctx.font = "8px 'MisakiGothic'";
+		this.ctx.font = "16px monospace";
+		this.touch = 0;
+		skgame.pt = this.pt;
+		skgame.key = [];
+		skgame.drawChip = this.drawChip;
+		skgame.add = function(n){self.score+=n;};
+		
+		document.onkeydown = function(e)
+		{
+			var kc = e ? e.keyCode:event.keyCode;
+			skgame.key[kc] = true;
+		};
+		
+		document.onkeyup = function(e)
+		{
+			var kc = e ? e.keyCode:event.keyCode;
+			skgame.key[kc] = false;
+			if(kc==80)window.open(self.cv.toDataURL());
+		};
+		
+		document.ontouchstart = function(e)
+		{
+			e.preventDefault();
+			x = e.touches[e.touches.length-1].pageX;
+			self.touch=x;
+			var kc = (x < window.screen.width * 0.5)? 37:39;
+			skgame.key[kc] = true;
+			var kc = (x < window.screen.width * 0.5)? 39:37;
+			skgame.key[kc] = false;
+		};
+		document.ongesturestart = document.ontouchstart;
+		document.ontouchend = function(e)
+		{
+			e.preventDefault();
+			x = self.touch;
+			var kc = (x < window.screen.width * 0.5)? 37:39;
+			skgame.key[kc] = false;
+		};
+		document.ontouchmove = function(e)
+		{
+			e.preventDefault();
+		}
+	}
+	//ゲーム部分の構築
+	skgame.prototype.init = function()
+	{
+		this.kani = new skgame_kani();
+		this.osaru = [];//new skgame_osaru();
+		if(this.score > this.highScore)this.highScore = this.score;
+		this.score = 0;
+		this.frame = 0;
+		this.title_Cv=0;
+		this.osaru.push(new skgame_osaru(160-16));
+		var self = this;
+		if(this.id==null)this.id=setInterval(function(){self.mainLoop();},70);
+		this.gameState = 1;
+	}
+	
+	//メインループ
+	skgame.prototype.mainLoop = function()
+	{
+		this.kani.inFrame();
+		if(this.kani.s!=2)
+		{
+			t = (this.frame+this.score)%12;
+			if(this.frame%48==47)
+			{
+				if(t==6)this.osaru.push(new skgame_osaru(0,0),new skgame_osaru(160-16,0));
+				else if(t>= 10)this.osaru.push(new skgame_osaru(this.kani.x+(this.frame%5*16),100),new skgame_osaru(this.kani.x+(this.frame%10*8),100));
+				else this.osaru.push(new skgame_osaru(this.kani.x+(this.frame%5*16),t));
+			}
+			l = this.osaru.length; 
+			for(i=0;i<l;i++)if(this.osaru[i].al)this.osaru[i].inFrame(this.kani);
+		}else
+		{
+			this.title_Cv++;
+			if(skgame.key[37]==true || skgame.key[39]==true )this.title_Cv+=10;
+			if(this.title_Cv>60)this.init();
+		}
+		//描画
+		this.ctx.fillStyle = "black";
+		this.ctx.fillRect(0,0,160,140);
+		this.kani.draw();
+		//for(i=0;i<l;i++)if(this.osaru[i].al)this.osaru[i].draw();
+		for(i=0,l=this.osaru.length;i<l;i++)if(this.osaru[i].al)this.osaru[i].draw();
+		this.frame++;
+		if(this.kani.s==2)this.ctx.drawImage(this.pt, 0, 48, 64, 16, 48, 32, 64, 16);
+		this.ctx.textAlign = "left";
+		this.ctx.textBaseline = "top";
+		this.ctx.fillStyle = "white";
+		this.ctx.fillText("SCORE:"+this.score, 0, 0);
+		//this.ctx.fillText("HIGHSCORE:"+this.highScore, 0, 140-8);
+		this.ctx.fillText("HIGHSCORE:"+this.highScore, 0, 140-16);
+	}
+	
+	//チップを描画
+	skgame.prototype.drawChip = function(sx, sy, x, y, f)
+	{
+		this.ctx.save();
+		if(f){this.ctx.setTransform(-1, 0, 0, 1, 0, 0);this.ctx.translate((x*-2)-16, 0);}
+		this.ctx.drawImage( this.pt, sx*16, sy*16, 16, 16, x, y, 16, 16);
+		this.ctx.restore();
+	}
+	
+	//カニちゃん　コンストラクタ
+	function skgame_kani()
+	{
+		this.x = 0;//位置
+		this.s = 0;//ステート(0:無し 1:歩行 2:死亡)
+		this.f = false;//向き
+		this.ac = 0;//アニメカウンタ
+	}
+	
+	//カニちゃん　毎フレーム描画前
+	skgame_kani.prototype.inFrame = function()
+	{
+		if(this.s!=2)
+		{
+			if(skgame.key[37]){this.s = 1;this.f = false;}
+			if(skgame.key[39]){this.s = 1;this.f = true;}
+			if(!skgame.key[37] && !skgame.key[39]){this.s = 0;}
+			if(this.s==1)this.x += (this.f? 4:-4);
+		}
+		this.ac = (this.ac ? 0:1);
+		if(this.x<0)this.x=0;
+		if(this.x+16>160)this.x=160-16;
+	}
+	//カニちゃん　描画
+	skgame_kani.prototype.draw = function()
+	{
+		if(this.s!=2)skgame.drawChip( (!this.s)? 0:(1+this.ac), 0, this.x, 100, this.f);
+		else if(this.ac)skgame.drawChip( 3, 0, this.x, 100, this.f);
+	}
+	
+	//おサルくん　コンストラクタ
+	function skgame_osaru(x,type)
+	{
+		this.x = x;//位置
+		this.y = 0;
+		this.vx = 0;//ベクトル
+		this.vy = 0;
+		this.s = -1;//ステート(-1:登場時落下 0:無し 1:歩く 2:ジャンプ 3:死亡)
+		this.f = false;//向き
+		this.al = true;
+		this.frame = 0;
+		this.type = type;
+		this.ac = 0;//アニメカウンタ
+		if(this.type==3){this.s=0;this.x=160+16;this.y=100}
+		if(this.type==4){this.s=0;this.x=-16;this.y=100}
+		if(this.type==100){this.s=4;}
+	}
+	
+	//おサルくん　毎フレーム描画前
+	skgame_osaru.prototype.inFrame = function(kani)
+	{
+		if(this.s==-1)
+		{
+			this.vx = 0;
+			this.vy = 8;
+			if(this.type==1)this.vx=(this.f? 8:-8);
+			if(this.type==2)this.vy= 4;
+			if(this.y+this.vy>100)
+			{
+				this.y=100;
+				this.vy=0;
+				this.s=0;
+			}
+		}else if(this.s==0)
+		{
+			this.vy = 0;
+			
+			//vxを算出
+			max=(this.f? 6:-6);
+			if(this.ac+Math.abs(kani.x-this.x)>32)//追え！！
+			{
+				if(this.f && this.vx<max)this.vx++;
+				if(!this.f && this.vx>max)this.vx--;
+				this.f = (kani.x>this.x)?true:false;
+				if(this.ac+Math.abs(kani.x-this.x)<48)
+				{
+					this.s = 2;
+					this.vy = -8;
+				}
+			}
+			else//逃げろ！！！
+			{
+				this.f = (kani.x>this.x)?false:true;
+				if(Math.abs(this.vx)>3)
+				{
+					this.s = 2;
+					this.vy = -10-(Math.abs(this.vx));
+				}
+			}
+			if(this.frame%30==1)
+			{
+				this.s = 2;
+				this.vy = -16;
+			}
+		}
+		else if(this.s==2)//ジャンプ
+		{
+			this.vx=(this.f? 6:-6);
+			this.vy+=2;
+			if(this.y+this.vy>100)
+			{
+				this.y=100;
+				this.vy=0;
+				this.vx=0;
+				this.s=0;
+			}
+			if(this.vy>-5)
+			{
+				f = (kani.x>this.x)?false:true;
+				max=(f? 6:-6);
+				if(f && this.vx<max)this.vx++;
+				if(!f && this.vx>max)this.vx--;
+			}
+		}
+		else if(this.s==3)//負け
+		{
+			this.vx=0;
+			this.vy=-1;
+			if(this.frame>10)this.al=false;
+		}
+		else if(this.s==4)//カキ
+		{
+			this.vx=0;
+			this.vy++;
+			if(this.y+this.vy>100 && this.f==false){this.vy=-10;this.f=true;skgame.add(1);}
+			if(this.y>140)this.al=false;
+		}
+		if(this.s!=3 && Math.sqrt(Math.pow((kani.x+8) - (this.x+8),2) + Math.pow((100+8) - (this.y+8+this.vy),2))<14)
+		{
+			if(this.vy>0 || this.s==4)kani.s=2
+			else{this.s=3;this.frame=0;skgame.add(5);}
+		}
+		
+		if(this.x+this.vx<0)this.f=true;
+		if(this.x+this.vx>160-16)this.f=false;
+		this.x += this.vx;
+		this.y += this.vy;
+		this.frame = (this.frame+1)%320;
+		this.ac = this.frame%4;//アニメカウンタ
+	}
+	//おサルくん　描画
+	skgame_osaru.prototype.draw = function()
+	{
+		if(this.s==0 && Math.abs(this.vx)<3)skgame.drawChip(0, 1, this.x, this.y, this.f);
+		if(this.s==0 && Math.abs(this.vx)>=3)skgame.drawChip(this.ac, 2, this.x, this.y, this.f);
+		if(this.s==2 || this.s==-1)skgame.drawChip(1, 1, this.x, this.y, this.f);
+		if(this.s==3 &&this.ac%2==0)skgame.drawChip(2, 1, this.x, this.y, this.f);
+		if(this.s==4)skgame.drawChip(3, 1, this.x, this.y, this.f);
+	}
+
+	// @license-end
+</script>
+<h1>さるかに</h1>
+<div id="sarukaniP">
+<img src="title.png" id="sarukani" alt="クリック" onclick="new skgame(this,'pattern.png')">
+</div>
+<div id="sousa">
+	<h2>操作</h2>
+	<dl>
+		<dt>画面クリック</dt>
+		<dd>ゲームスタート</dd>
+		<dt>矢印キー</dt>
+		<dd>左右に動く</dd>
+	</dl>
+</div>
+<p><a href="../">他のゲームへ</a></p>
+<div id="asobikata">
+<h3>遊びかた</h3>
+	<p>カニちゃんは、上から踏まれる以外は無敵なので、おサルくんが地面を走ってる時にぶつけて、ハサミでチョッキンしちゃいましょう。
+	<p>ジャンプアクションのザコ敵を操作する感じです。
+</div>
+

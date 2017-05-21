@@ -1,0 +1,541 @@
+﻿<!DOCTYPE html>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width;initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+body{
+	
+	background-color: #111;
+	color: #eee;
+	font-size:16px;
+	min-width:320px;
+	max-width:50%;
+	margin:auto;
+}
+canvas, #bv{
+	
+	
+	text-align: center;
+	border: 1px  solid #eee;
+}
+h1,h2,h3,h4,h5,h6 {
+	text-align: center;
+}
+#bvP,#sousa{
+	width:320px;
+	margin:auto;
+}
+#bvP > canvas, #bv {
+	width: 320px;
+	height: auto;
+	image-rendering: -moz-crisp-edges;
+	image-rendering: -webkit-crisp-edges;
+	image-rendering: crisp-edges;
+}
+#asobikata{
+    border-top: 2px ridge #333300;
+}
+</style>
+<title>ブルベーダー</title>
+<script>
+	// @license magnet:?xt=urn:btih:90dc5c0be029de84e523b9b3922520e79e0e6f08&dn=cc0.txt CC0
+	
+	
+	//　Canvasをちょっとナンする
+	CanvasRenderingContext2D.prototype.drawChip16 = function(img, sx, sy, x, y, rw,rh) {
+		
+		
+		this.save();
+		x=~~x;
+		y=~~y;
+		if( rw|| rh) {
+			
+			
+			this.setTransform(rw ? -1 : 1, 0, 0, rh ? -1 : 1, 0, 0);this.translate(rw ? (x*-2)-16 : 0, rh ? (y*-2)-16 : 0);
+		}
+		this.drawImage( img, sx*16, sy*16, 16, 16, x, y, 16, 16);
+		this.restore();
+	}
+	CanvasRenderingContext2D.prototype.drawStrW = function(str, x, y, ali, bas) {
+		
+		
+		this.save();
+		this.fillStyle = "white";
+		//this.font = "12px 'ＭＳ ゴシック'";
+		this.font = "12px monospace";
+		this.textAlign = ali? ali: "left";
+		this.textBaseline = bas? bas: "top";
+		this.fillText(str, x, y);
+		this.restore();
+	}
+	
+	//　ブルベーダー
+	function bvgame(timg) {
+		
+		
+		//　メインクラス
+		function main(cv){
+			
+			
+			var self = this;
+			//　キャンバスを取得
+			this.cv = cv;
+			this.cv.width = 160;
+			this.cv.height = 144;
+			
+			//　コンテキスト
+			this.ctx = this.cv.getContext('2d');
+			
+			//　パターン画像
+			this.imgl = 0;
+			this.img = new Image();
+			this.img.src = "img.png";
+			this.img.onload = function() {
+				
+				
+				setInterval(function(){self.inFrame()}, 70);
+			}
+			//　ゲーム中の要素
+			this.reset();
+		}
+		//　フレーム毎の処理
+		main.prototype.reset = function() {
+			
+			
+			this.frame = -1;			//　フレーム
+			this.player = new player();			//　プレイヤー
+			this.enemy = new enemy();				//　エネミー
+			this.ctrl = new ctrl();
+			this.score = 0;
+		}
+		//　フレーム毎の処理
+		main.prototype.inFrame = function() {
+			
+			
+			this.frame++;
+			
+			
+			this.ctrl.count();
+			this.player.inFrame(this);
+			if(this.player.state != 2)this.enemy.inFrame(this);
+			//　描画
+			ctx = this.ctx;
+			ctx.fillStyle = "black";
+			ctx.fillRect(0, 0, 160, 144);
+			
+			this.player.draw(ctx, this.img);
+			this.enemy.draw(ctx, this.img);
+			ctx.drawStrW("SCORE "+ this.score, 0, 0);
+			
+			
+			if(this.player.state == 2) {
+				
+				
+				ctx.fillRect(0, 80, 160, 12);
+				ctx.drawStrW("GAME OVER", 80, 80,"center");
+			}
+		}
+		
+		
+		//　プレイヤー
+		function player() {
+			
+			
+			this.x = 0;
+			this.vx = 0;
+			this.y = 144-16;
+			this.vy = 0;
+			this.state = 0;
+			
+			this.frame = 0;
+			this.pc = -1;		//　パンチ
+		}
+		player.prototype.inFrame = function(main) {
+			
+			
+			var enemy = main.enemy;
+			var ctrl = main.ctrl;
+			
+			this.frame++;
+			
+			
+			
+			if(this.state == 0) {
+				//　平常時
+				
+				this.pc = -1;
+				
+				if(ctrl.keyr[0]) this.vx = -4;
+				else if(ctrl.keyr[2]) this.vx = 4;
+				else this.vx = ~~(this.vx * 0.5);
+				this.vy = 0;
+				if(ctrl.keyr[4] == 1) this.state = 1;
+			}
+			else if(this.state == 1) {
+				//　パンチ中
+				
+				this.pc++;
+				
+				if (this.pc == 0)this.vy = -12;
+				else this.vy++;
+				
+				if (this.y+this.vy > 144 - 16) {
+					// 床に衝突
+					
+					this.y = 144 - 16;
+					this.vy = 0;
+					this.state = 0;
+				}
+			}
+			else {
+				
+				this.vx = 0;
+				this.vy = 0;
+				if(this.frame>30) {
+					
+					
+					main.reset();
+				}
+			}
+			for(i = 0; i < 8; i++) {
+				
+				
+				var bom = enemy.bom[i];
+				
+				if(~~(bom.x/8) == ~~(this.x/8)
+				&& ~~(bom.y/8) == ~~(this.y/8)
+				&& this.state != 2) {
+					
+					
+					this.state = 2;
+					this.frame = 0;
+				}
+			}
+			if (this.x < 0 && this.vx < 0) {
+				//　左の壁に当たったなら
+				
+				this.x = 0;		//　動かす
+				if(this.state == 1) {
+				　//　パンチ中なら
+					
+					this.vx = this.vx * -1;
+					this.vy -= 4;
+				}
+			}
+			if (this.x+16 > 160 && this.vx > 0) {
+				//　右の壁に壁に当ったなら
+				
+				this.x = 160-16;		//　動かす
+				if(this.state == 1) {
+				　//　パンチ中なら
+					
+					this.vx = this.vx * -1;
+					this.vy -= 4;
+				}
+			}
+			this.x += this.vx;
+			this.y += this.vy;
+		}
+		player.prototype.draw = function(ctx, img) {
+			
+			
+			if(this.state == 2 && this.frame%2)ctx.drawChip16(img, 2, 0, this.x, this.y);
+			if(this.state != 2) ctx.drawChip16(img, this.frame%2, 0, this.x, this.y);
+		}
+		//　エネミー
+		enemy.SIZE_X = 8;
+		enemy.SIZE_Y = 4;
+		function enemy() {
+			
+			
+			this.x = 16;
+			this.y = 16;
+			this.vx = 1;
+			this.vy = 0;
+			this.sx = 0;		//　ショットできるx
+			this.sy = 0;		//　ショットできるy
+			this.frame = -1;
+			this.arr = [];
+			this.lv = 1;
+			this.ufo = -1;
+			this.mc = 0;	//　動けないカウンター
+			
+			this.shot = false;			//　ショットできるか？
+			for(i = 0; i < enemy.SIZE_X + enemy.SIZE_Y * enemy.SIZE_X; i++) {
+				
+				
+				this.arr[i] = 1;
+			}
+			this.bom = [];
+			for(i = 0; i < 8; i++) {
+				
+				
+				this.bom[i] = {x:0,y:0,c:-1};
+			}
+		}
+		//　復活
+		enemy.prototype.hukkatu = function(main) {
+			
+			
+			this.x = 16;
+			this.y = -16;
+			for(i = 0; i < enemy.SIZE_X + enemy.SIZE_Y * enemy.SIZE_X; i++) {
+				
+				
+				this.arr[i] = (this.lv >= 8 && (this.lv%16)<4)?3:1;
+			}
+			for(i = 0; i < 8; i++) {
+				
+				
+				this.bom[i] = {x:0,y:0,c:-1};
+			}
+			this.lv++;
+		}
+		enemy.prototype.inFrame = function(main) {
+			
+			
+			var player = main.player;
+			this.frame++;
+			
+			if(this.y < 16) {
+				
+				
+				this.vx = 0;
+				this.vy = 1;
+			}
+			else{
+				
+				
+				lv = (this.lv%8) + 1;
+				
+				if(this.x+enemy.SIZE_X*16 > 160)this.vx = ((lv >4 ) ? -2: -1);
+				if(this.x < 0 || this.vx == 0)this.vx = ((lv >4 ) ? 2: 1);
+				
+				if(this.x+enemy.SIZE_X*16 > 158 || this.x < 2)this.vy = ~~(lv/2)+1;
+				else this.vy = 0;
+				
+				
+				var s = false;
+				if(this.frame % 30 == 29 && ~~(Math.random() * 10) > ((this.lv<4)?9:8) && this.ufo ==-1) this.ufo = 0;
+				for(i = 0; i < 8; i++) {
+					
+					
+					//this.bom[i] = {x:0,y:0,c:-1};
+					if(this.bom[i].c != -1) {
+						
+						
+						this.bom[i].c++;
+						this.bom[i].y += 4;
+						if(this.bom[i].c > 60)this.bom[i].c = -1;
+					}
+					if(!s && player.vy == 0 && this.shot && this.bom[i].c == -1 && this.frame % 10 == 9) {
+						
+						
+						this.bom[i].x = this.x + this.sx * 16;
+						this.bom[i].y = this.y + this.sy * 16;
+						this.bom[i].c = 0;
+						s = true;
+					}
+				}
+				var s = false;
+				var lx = -1;
+				var ly = -1;
+				var live = false;
+				//　敵全匹の処理
+				for(i = 0; i < enemy.SIZE_X;i++) {
+					
+					
+					for(j = 0; j < enemy.SIZE_Y;j++) {
+						
+						
+						var n = i + j * enemy.SIZE_X;
+						var x = this.x + i*16;
+						var y = this.y + j*16;
+						
+						if (this.arr[n] == 1 || this.arr[n] == 3) {
+							//　生きている
+							
+							if (player.x + 16 > x && player.x < x + 16
+							&& player.y + 16 > y && player.y < y + 16) {
+								//　主人公に接触
+								
+								this.arr[n] = (this.arr[n]==1)?2:4;
+								main.score += 5;
+							}
+							if(i == ~~(player.x - this.x) / 16) {
+								//　主人公に近いなら
+								
+								this.sx = i;
+								this.sy = j;
+								this.shot = true;
+							}
+							if(y + 16 > 144) {player.state =2;player.frame=0;}
+							lx = i;
+							ly = j;
+							live = true;
+						}
+						else if(this.arr[n] == 2) {
+							
+							
+							if(this.frame % 8 == 0)this.arr[n] = 0;
+							live = true;
+						}
+						else if(this.arr[n] == 4) {
+							
+							
+							if(this.frame % 8 == 0)this.arr[n] = 1;
+							live = true;
+						}
+						else {
+							
+							
+							if(this.sx == i && this.sy == j) {
+								
+								if(lx != -1 && ly != -1) {
+									
+									
+									this.sx = lx;
+									this.sy = ly;
+								}
+								else {
+									
+									
+									this.shot = false;
+								}
+							}
+						}
+					}
+				}
+				if(live == false)this.hukkatu();
+				if(this.ufo != -1) {
+					
+					
+					var x = 160 - this.ufo;
+					this.ufo++;
+					if(this.ufo-32 > 160) this.ufo = -1;
+					
+					if(~~(x/32) == ~~(player.x/32)
+					&& player.y < 48) {
+					//　接触している
+						
+						
+						this.ufo = -1;
+						this.y -= 8;
+						this.mc = 30;
+						main.score += 100;
+					}
+				}
+			}
+			//　すすむ
+			if(this.mc == 0){
+				
+				
+				this.x+=this.vx;
+				this.y+=this.vy;
+			}
+			else {
+				
+				
+				this.mc--;
+			}
+		}
+		enemy.prototype.draw = function(ctx, img) {
+			
+			
+			for(i = 0; i < enemy.SIZE_X;i++) {
+				
+				
+				for(j = 0; j < enemy.SIZE_Y;j++) {
+					
+					
+					my = this.arr[i + j * enemy.SIZE_X];
+					if(my == 1)ctx.drawChip16(img, this.frame%2, 1, this.x+i*16, this.y+j*16);
+					else if(my == 2)ctx.drawChip16(img, 2, 1, this.x+i*16, this.y+j*16);
+					else if(my == 3)ctx.drawChip16(img, this.frame%2, 2, this.x+i*16, this.y+j*16);
+					else if(my == 4)ctx.drawChip16(img, this.frame%2, 1+this.frame%2, this.x+i*16, this.y+j*16);
+				}
+			}
+			for(i = 0; i < 8; i++) {
+				
+				
+				if(this.bom[i].c != -1) {
+					
+					
+					ctx.drawChip16(img, 3, 1, this.bom[i].x, this.bom[i].y);
+				}
+			}
+			if(this.ufo != -1) { 
+				
+				ctx.drawChip16(img, 2, 2, 160-this.ufo, 16);
+				ctx.drawChip16(img, 2, 2, 160-this.ufo+16, 16, true);
+			}
+			ctx.drawStrW(this.lv+"Lv", 160, 0,"right");
+		}
+		/*　
+			コントロール　クラス
+		*/
+		function ctrl() {
+			
+			
+			//　変数
+			var self = this;
+			this.key=[];
+			this.keyr = [0,0,0,0,0,0];
+			
+			
+			document.addEventListener('keydown', function(e){self.keyd(e)});
+			document.addEventListener('keyup', function(e){self.keyu(e)});
+		}
+		//　長押しをカウント
+		ctrl.prototype.count = function() {
+			
+			
+			for(i=0;i<5;i++) {
+				
+				
+				if(i==4) {
+					if(this.key[13] || this.key[16] ||  this.key[90] )this.keyr[4]++;
+					else this.keyr[4] = 0;
+				}
+				else{
+					if(this.key[37+i])this.keyr[i]++;
+					else this.keyr[i] = 0;
+				}
+			}
+		}
+		ctrl.prototype.keyd = function(e) {var kc = e ? e.keyCode:event.keyCode;this.key[kc] = true;}
+		ctrl.prototype.keyu = function(e) {var kc = e ? e.keyCode:event.keyCode;this.key[kc] = false;}
+		
+		
+		//　ゲームを走らせる
+		var cv = document.createElement("canvas");
+		(document.getElementById(timg.id +"P")).appendChild(cv);
+		(document.getElementById(timg.id +"P")).removeChild(timg);
+		new main(cv);
+	}
+// @license-end
+</script>
+<h1>ブルベーダー</h1>
+<div id = "bvP">
+<img id = "bv" alt="" src="t.png" onclick="bvgame(this)">
+</div>
+<div id="sousa">
+	<h2>操作</h2>
+	<dl>
+		<dt>画面クリック</dt>
+		<dd>ゲームスタート</dd>
+		<dt>矢印キー</dt>
+		<dd>左右に動く</dd>
+		<dt>Z or Shift or Enter</dt>
+		<dd>攻撃</dd>
+	</dl>
+</div>
+<p><a href="../">他のゲームへ</a>
+<div id="asobikata">
+<h3>遊びかた</h3>
+	<p>上から宇宙人(ブルベーダー)が攻めてきます。画面下まで侵略される前に、破壊しましょう。
+	<p>白いドヤ顔の生物が自機（空き缶）です。矢印キーで歩けるし、Zキーでジャンプすると触れた宇宙人を倒す事ができます。また、ジャンプ中に壁に当たると、反射して高く飛べます。
+	<p>敵を全滅させると、レベルアップし、次の宇宙人がやってきます。赤い宇宙人（ストロベーダー）は、２回攻撃しないと倒せません。
+	<p>時々、画面右上からやって来るUFOを破壊すると、ボーナスが貰える上、敵の動きが止まるので、積極的に破壊しましょう。
+	<p>作者の限界は20lvくらいです。
+</div>
+
